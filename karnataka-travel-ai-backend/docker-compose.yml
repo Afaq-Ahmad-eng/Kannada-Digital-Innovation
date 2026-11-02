@@ -1,0 +1,212 @@
+# Local orchestration. Only the API gateway (8080) is exposed to the host among application services.
+x-common-env: &common-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+  KAFKA_BROKERS: ${KAFKA_BROKERS:-${KAFKA_BROKER:-redpanda:9092}}
+  KAFKA_SSL: ${KAFKA_SSL:-false}
+  KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+  KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
+  KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-256}
+  KAFKA_CA_CERT_BASE64: ${KAFKA_CA_CERT_BASE64:-}
+  OTEL_ENABLED: ${OTEL_ENABLED:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  OTEL_METRICS_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
+
+x-gemini-env: &gemini-env
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+  GEMINI_EMBED_MODEL: ${GEMINI_EMBED_MODEL:-gemini-embedding-001}
+
+x-app: &app
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_started }
+    redpanda: { condition: service_healthy }
+
+services:
+  # ------------------------- infrastructure -------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports: ["19092:19092"]
+    volumes: [redpanda:/var/lib/redpanda/data]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # ------------------------- observability -------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment: { COLLECTOR_OTLP_ENABLED: "true" }
+    ports: ["16686:16686"]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes: ["./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
+    ports: ["3001:3000"]
+    depends_on: [prometheus, jaeger]
+
+  # ------------------------- edge -------------------------
+  api-gateway:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/api-gateway } }
+    ports: ["8080:3000"]
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: api-gateway
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      AUTH_SERVICE_URL: http://auth-service:3000
+      USER_SERVICE_URL: http://user-service:3000
+      ITINERARY_SERVICE_URL: http://itinerary-service:3000
+      ALERT_SERVICE_URL: http://alert-service:3000
+      REROUTE_SERVICE_URL: http://reroute-service:3000
+      LANGUAGE_SERVICE_URL: http://language-culture-service:3000
+      ADMIN_SERVICE_URL: http://admin-service:3000
+
+  web:
+    build:
+      context: ../karnataka-travel-ai-web
+    ports: ["4173:80"]
+    restart: unless-stopped
+    depends_on:
+      api-gateway: { condition: service_started }
+
+  # ------------------------- domain services -------------------------
+  auth-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/auth-service } }
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: auth-service
+      DATABASE_URL: postgres://auth_svc:auth_pw@postgres:5432/auth_db
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+  user-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/user-service } }
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: user-service
+      DATABASE_URL: postgres://user_svc:user_pw@postgres:5432/user_db
+
+  itinerary-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/itinerary-service } }
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: itinerary-service
+      DATABASE_URL: postgres://itinerary_svc:itinerary_pw@postgres:5432/itinerary_db
+
+  alert-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/alert-service } }
+    environment:
+      <<: [*common-env, *gemini-env]
+      OTEL_SERVICE_NAME: alert-service
+      DATABASE_URL: postgres://alert_svc:alert_pw@postgres:5432/alert_db
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      ENABLE_DEMO_ENDPOINTS: ${ENABLE_DEMO_ENDPOINTS:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Karnataka Travel AI <alerts@example.com>}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+
+  reroute-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/reroute-service } }
+    environment:
+      <<: [*common-env, *gemini-env]
+      OTEL_SERVICE_NAME: reroute-service
+      DATABASE_URL: postgres://reroute_svc:reroute_pw@postgres:5432/reroute_db
+
+  language-culture-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/language-culture-service } }
+    environment:
+      <<: [*common-env, *gemini-env]
+      OTEL_SERVICE_NAME: language-culture-service
+      DATABASE_URL: postgres://culture_svc:culture_pw@postgres:5432/culture_db
+      WHISPER_API_KEY: ${WHISPER_API_KEY:-}
+      WHISPER_BASE_URL: ${WHISPER_BASE_URL:-https://api.openai.com/v1}
+      GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY:-}
+
+  admin-service:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: services/admin-service } }
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: admin-service
+      DATABASE_URL: postgres://admin_svc:admin_pw@postgres:5432/admin_db
+
+  # ------------------------- async workers (scale with: docker compose up --scale ai-itinerary-worker=3) -------------------------
+  ai-itinerary-worker:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: workers/ai-itinerary-worker } }
+    environment:
+      <<: [*common-env, *gemini-env]
+      OTEL_SERVICE_NAME: ai-itinerary-worker
+      DATABASE_URL: postgres://rag_worker:rag_pw@postgres:5432/rag_db
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/2}
+      METRICS_PORT: "9100"
+
+  gis-transit-worker:
+    <<: *app
+    build: { context: ., args: { SERVICE_DIR: workers/gis-transit-worker } }
+    environment:
+      <<: *common-env
+      OTEL_SERVICE_NAME: gis-transit-worker
+      OSRM_URL: ${OSRM_URL:-https://router.project-osrm.org}
+      METRICS_PORT: "9100"
+
+volumes:
+  pgdata:
+  redisdata:
+  redpanda:

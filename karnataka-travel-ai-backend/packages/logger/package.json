@@ -1,0 +1,16 @@
+{
+  "name": "@kta/logger",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "pino": "^9.3.2"
+  },
+  "optionalDependencies": {
+    "pino-pretty": "^11.2.2"
+  }
+}

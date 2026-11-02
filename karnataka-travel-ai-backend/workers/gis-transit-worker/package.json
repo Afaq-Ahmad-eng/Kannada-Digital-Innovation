@@ -1,0 +1,20 @@
+{
+  "name": "@kta/gis-transit-worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@kta/kafka-events": "*",
+    "@kta/logger": "*",
+    "@kta/service-kit": "*",
+    "@kta/shared-types": "*",
+    "nodemailer": "10.3.1",
+    "pino": "^9.3.2",
+    "zod": "^4.6.7"
+  }
+}

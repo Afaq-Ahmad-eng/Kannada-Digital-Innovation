@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-sandal-50 font-sans text-slate-800 antialiased; padding-bottom: env(safe-area-inset-bottom); }
+  h1, h2, h3 { @apply font-display tracking-tight text-slate-900; }
+  :focus-visible { @apply outline-none ring-2 ring-ghats-500 ring-offset-2 ring-offset-sandal-50; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+}
+
+.leaflet-container { font-family: inherit; border-radius: 1rem; }

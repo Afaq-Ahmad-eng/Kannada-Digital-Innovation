@@ -1,0 +1,17 @@
+{
+  "name": "@kta/kafka-events",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kta/logger": "*",
+    "@kta/shared-types": "*",
+    "kafkajs": "^2.2.4",
+    "nodemailer": "10.3.1",
+    "zod": "^4.6.7"
+  }
+}

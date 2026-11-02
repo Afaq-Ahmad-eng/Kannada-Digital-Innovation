@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api-gateway:3000
+          - auth-service:3000
+          - user-service:3000
+          - itinerary-service:3000
+          - alert-service:3000
+          - reroute-service:3000
+          - language-culture-service:3000
+          - admin-service:3000
+          - ai-itinerary-worker:9100
+          - gis-transit-worker:9100

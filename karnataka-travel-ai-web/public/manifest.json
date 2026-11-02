@@ -1,0 +1,9 @@
+{
+  "name": "Yatre - Karnataka trip planner",
+  "short_name": "Yatre",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf8f2",
+  "theme_color": "#0f6b4f",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
