@@ -20,7 +20,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', true);
 app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN.split(','), credentials: true }));
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(pinoHttp({ logger: log, autoLogging: { ignore: (req) => req.url === '/health' || req.url === '/metrics' } }));
 app.use(metricsMiddleware('api-gateway'));
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'api-gateway' }));

@@ -21,6 +21,18 @@ On Windows PowerShell, copy the environment template with `Copy-Item .env.exampl
 The Compose stack includes the web client at http://localhost:4173, which proxies API requests to the gateway.
 Stop the stack with `docker compose down`; database data remains in Docker volumes.
 
+### Deploying the gateway on Render
+
+The gateway config in `services/api-gateway/src/config.ts` requires an upstream URL for each backend service. In the Render API gateway service's environment, set `AUTH_SERVICE_URL`, `USER_SERVICE_URL`, `ITINERARY_SERVICE_URL`, `ALERT_SERVICE_URL`, `REROUTE_SERVICE_URL`, `LANGUAGE_SERVICE_URL`, and `ADMIN_SERVICE_URL` to the corresponding services' **Internal URLs** from Render. Keep each service reachable from the gateway on the port shown by that URL. The Docker Compose URLs in this repository (`http://auth-service:3000`, etc.) are only for Compose networking and should not be copied to Render unless they match its Internal URLs.
+
+Set `CORS_ORIGIN` on the Render gateway to the comma-separated browser origins that need direct cross-origin access, for example:
+
+```text
+https://kannada-digital-innovation.vercel.app,https://kannada-digital-innovation-yrqz.vercel.app
+```
+
+Both Vercel projects already rewrite `/api/*` to the Render gateway, so requests through those rewrites are same-origin from the browser's perspective; retaining the Vercel origins in `CORS_ORIGIN` also permits direct browser-to-gateway calls. After changing Render environment variables, redeploy the gateway. Check `https://<gateway>/health` for gateway health and test the public auth/register endpoints to confirm that their upstream services respond; a gateway health response alone does not prove upstream connectivity.
+
 ### Use Upstash Redis
 
 The auth service, alert service, and itinerary worker use Redis. For local development, leave `REDIS_URL` blank; Compose uses the local Redis container and separate logical databases for those services. To use Upstash instead, set `REDIS_URL` in the backend root `.env` to the TLS URL from Upstash, using the `rediss://` scheme (for example, `rediss://default:<password>@<endpoint>:6379`). Do not use the `redis-cli --tls` command itself as the application URL. The Redis clients use TLS automatically for `rediss://` URLs.
