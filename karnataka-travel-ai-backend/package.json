@@ -16,7 +16,8 @@
     "build:apps": "npm run build -w @kta/api-gateway -w @kta/auth-service -w @kta/user-service -w @kta/itinerary-service -w @kta/alert-service -w @kta/reroute-service -w @kta/language-culture-service -w @kta/admin-service -w @kta/ai-itinerary-worker -w @kta/gis-transit-worker",
     "build": "npm run build:packages && npm run build:apps",
     "up": "docker compose up --build",
-    "down": "docker compose down"
+    "down": "docker compose down",
+    "start:all": "node runner.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",
