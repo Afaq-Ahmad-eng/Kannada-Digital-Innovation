@@ -4,12 +4,12 @@ React 18 + Vite + TypeScript + Tailwind. Feature-sliced, mobile-first, service-w
 
 ```bash
 npm install
-cp .env.example .env     # VITE_API_PROXY must point at the backend api-gateway (default http://localhost:8080)
+cp .env.example .env     # VITE_API_PROXY points at the backend API gateway
 npm run dev              # http://localhost:5173
 npm run build            # type-checks, then builds to dist/
 ```
 
-The dev server proxies `/api` to the gateway, so the HttpOnly refresh cookie stays same-origin. In production serve `dist/` behind a reverse proxy that forwards `/api` to the gateway with buffering off (see `nginx.conf`, needed for Server-Sent Events).
+The dev server loads `VITE_API_PROXY` from `.env` and proxies `/api` to the gateway, so the HttpOnly refresh cookie stays same-origin. Change that variable if you use a different gateway. In production serve `dist/` behind a reverse proxy that forwards `/api` to the gateway with buffering off (see `nginx.conf`, needed for Server-Sent Events).
 
 ## Structure
 
