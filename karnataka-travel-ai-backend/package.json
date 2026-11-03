@@ -14,7 +14,7 @@
   "scripts": {
     "build:packages": "npm run build -w @kta/logger && npm run build -w @kta/shared-types && npm run build -w @kta/kafka-events && npm run build -w @kta/service-kit",
     "build:apps": "npm run build -w @kta/api-gateway -w @kta/auth-service -w @kta/user-service -w @kta/itinerary-service -w @kta/alert-service -w @kta/reroute-service -w @kta/language-culture-service -w @kta/admin-service -w @kta/ai-itinerary-worker -w @kta/gis-transit-worker",
-    "build": "turbo run build",
+    "build": "npx turbo run build",
     "up": "docker compose up --build",
     "down": "docker compose down",
     "start:all": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"GATEWAY,AUTH,USER\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"node --max-old-space-size=80 services/api-gateway/dist/index.js\" \"node --max-old-space-size=80 services/auth-service/dist/index.js\" \"node --max-old-space-size=80 services/user-service/dist/index.js\""
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@types/node": "^20.14.12",
     "tsx": "^4.16.5",
+    "turbo": "^2.11.10",
     "typescript": "^5.5.4"
   },
   "dependencies": {
